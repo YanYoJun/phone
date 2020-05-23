@@ -357,6 +357,24 @@ abstract class StateMachine(var mDevice: UiDevice) :
         wait(3, page)
     }
 
+    fun wait(selector: BySelector) {
+        wait(3, selector)
+    }
+
+    fun wait(second: Int, vararg selector: BySelector) {
+        sleep(200)
+        for (temp in selector) {
+            if (mDevice.hasObject(temp)) {
+                return
+            }
+        }
+        if (second <= 0) {
+            return
+        }
+        sleep(800)
+        wait(second - 1, *selector)
+    }
+
     fun wait(second: Int, vararg page: PageState2) {
         sleep(200)
         for (temp in page) {
@@ -371,7 +389,7 @@ abstract class StateMachine(var mDevice: UiDevice) :
         wait(second - 1, *page)
     }
 
-    fun onMachineCrashed(e: Exception){
+    open fun onMachineCrashed(e: Exception) {
         logcat(e)
     }
 
