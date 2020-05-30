@@ -1,51 +1,46 @@
 package com.plbear.base.base.utils
 
-
-import android.util.Log
-
-import com.google.gson.FieldNamingStrategy
+import com.google.gson.FieldNamingPolicy
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
-import com.google.gson.reflect.TypeToken
-import com.google.gson.stream.JsonReader
-
-import java.lang.reflect.Field
+import com.google.gson.JsonObject
 import java.lang.reflect.Type
-import java.util.Date
 
 /**
- * @author yanyongjun 20190614
+ * @author Xu
  */
-class GsonManager private constructor(){
-    var gson: Gson = GsonBuilder()
-            .setFieldNamingStrategy {
-                if (it.name == "_package") {
-                    "package"
-                } else {
-                    it.name
-                }
-            }
-            .setDateFormat("yyyy-MM-dd HH:mm:ss")
-            .create()
-
-    fun gson(): Gson {
-        return gson
-    }
-
-    fun toJson(src: Any?): String {
-        if (src == null) {
-            return "null"
+class GsonManager {
+    val gson = GsonBuilder().setFieldNamingStrategy {
+        if (it.name == "_package") {
+            "packages"
+        } else {
+            it.name
         }
-        return gson.toJson(src)
-    }
-
-    inline fun <reified T> fromJson(json: String): T? {
-        return gson.fromJson(json, T::class.java)
-    }
+    }.create()
 
     companion object {
         val instance by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
             GsonManager()
         }
+    }
+
+    inline fun <reified T> fromJson(json: String?): T? {
+        return GsonManager.instance.gson.fromJson(json, T::class.java)
+    }
+
+    fun <T> fromJson(json: String, classOfT: Class<T>): T? {
+        return gson.fromJson(json, classOfT)
+    }
+
+    fun <T> fromJson(json: String, type: Type): T? {
+        return gson.fromJson(json, type)
+    }
+
+    fun toJsonObject(json: String): JsonObject {
+        return gson.fromJson(json, JsonObject::class.java)
+    }
+
+    fun toJson(src: Any?): String {
+        return gson.toJson(src)
     }
 }

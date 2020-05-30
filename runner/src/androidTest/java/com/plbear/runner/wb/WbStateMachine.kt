@@ -19,6 +19,7 @@ import com.plbear.runner.base.StateMachine
 import org.hamcrest.MatcherAssert
 import org.hamcrest.core.IsNull
 import java.io.File
+import java.util.*
 
 /**
  * created by yanyongjun on 2020-04-15
@@ -34,9 +35,43 @@ class WbStateMachine(device: UiDevice) : StateMachine(device) {
     private var mAndroidMsg: AndroidMsg? = null
     private val mImgPath = "/sdcard/mahuateng/WeiBoImg/"
 
+    /**
+     * 确保从每天零点开始~ 6点 , 确保阿里妈妈在前台
+     */
+    fun ensureLMAtTopIfNeed(): Boolean {
+        val time = System.currentTimeMillis()
+        val cal = Calendar.getInstance()
+            .apply { setTime(Date(time)) }
+        val hour = cal[Calendar.HOUR_OF_DAY]
+        logcat("hour:$hour")
+        if (hour >= 6) return false
+        val obj = mDevice.findObject(By.pkg("com.alimama.moon"))
+        if (obj == null) {
+            logcat("start 阿里妈妈")
+            Shell.execCommand(String.format("am force-stop %s", "com.alimama.moon"), true)
+            mDevice.pressHome()
+            sleep(500)
+            mDevice.pressHome()
+            sleep(500)
+            val context = InstrumentationRegistry.getContext()
+            val intent = context.packageManager.getLaunchIntentForPackage("com.alimama.moon")
+            context.startActivity(intent)
+            ToastManager.showToast("阿里妈妈不在前台 启动")
+        } else {
+            obj.recycle()
+            ToastManager.showToast("阿里妈妈在前台")
+        }
+        return true
+    }
+
     private val mHomePage: PageState2 =
         object : PageState2("首页", By.res("com.sina.weibo:id/titleSave")) {
             override fun dealMessage(msg: Message) {
+                if (ensureLMAtTopIfNeed()) {
+                    Thread.sleep(20000)
+                    sendMessage(MSG_INIT)
+                    return
+                }
                 if (!isPageInFont) {
                     restart()
                     return
@@ -44,32 +79,40 @@ class WbStateMachine(device: UiDevice) : StateMachine(device) {
                 when (msg.what) {
                     MSG_INIT -> {
                         mAndroidMsg = null
-                        if (mLastSendTime > System.currentTimeMillis() - 5 * 60 * 1000) {
+                        if (mLastSendTime > System.currentTimeMillis() - 8 * 60 * 1000) {
                             ToastManager.showToast("等待5分钟再次获取任务")
                             Thread.sleep(5000)
                             sendMessage(MSG_INIT)
                             return
                         }
                         val mahuateng = File("/sdcard/mahuateng")
-                        if (!mahuateng.exists()){
+                        if (!mahuateng.exists()) {
                             logcat("create mahuateng")
                             mahuateng.mkdirs()
                         }
                         val img = File("/sdcard/mahuateng/WeiBoImg")
-                        if (!img.exists()){
+                        if (!img.exists()) {
                             logcat("create WeiBoImg")
                             img.mkdirs()
                         }
-
-                        val request = ApiFactory.apiService().getNextCommodity().execute().body()
-                        if (request == null || request.success == false) {
-                            logcat("request:${GsonManager.instance.toJson(request)}")
-                            ToastManager.showToast("请求结果为空")
+                        val result = kotlin.runCatching {
+                            val request =
+                                ApiFactory.apiService().getNextCommodity().execute().body()
+                            if (request == null || !request.success) {
+                                logcat("request:${GsonManager.instance.toJson(request)}")
+                                ToastManager.showToast("请求结果为空")
+                                Thread.sleep(5000)
+                                sendMessage(MSG_INIT)
+                                return
+                            }
+                            mAndroidMsg = request.data
+                        }
+                        if (result.isFailure) {
+                            ToastManager.showToast("网络请求失败")
                             Thread.sleep(5000)
                             sendMessage(MSG_INIT)
                             return
                         }
-                        mAndroidMsg = request.data
                         mLastSendTime = System.currentTimeMillis()
                         //下载图片
                         File(mImgPath).deleteRecursively()
@@ -90,7 +133,10 @@ class WbStateMachine(device: UiDevice) : StateMachine(device) {
                             this.className(TextView::class.java)
                         }
 //                        val add = mDevice.findObject(selector)
-                        val add = findObject(By.res("com.sina.weibo:id/titleSave").clazz(TextView::class.java).enabled(true))
+                        val add = findObject(
+                            By.res("com.sina.weibo:id/titleSave").clazz(TextView::class.java)
+                                .enabled(true)
+                        )
                         if (add == null) {
                             logcat("没有找到发送按钮")
                             restart()
@@ -98,7 +144,7 @@ class WbStateMachine(device: UiDevice) : StateMachine(device) {
                         }
 
                         logcat("点击")
-                        mDevice.click(993,136)
+                        mDevice.click(993, 136)
 //                        add.click()
 //                        val bounds = add.visibleBounds
 //                        logcat("left:${bounds.left} right:${bounds.right} top:${bounds.top} bottom:${bounds.bottom}")
@@ -130,7 +176,7 @@ class WbStateMachine(device: UiDevice) : StateMachine(device) {
                 findObject(By.desc("插入图片"))?.click()
 //                findObject(By.res("com.sina.weibo:id/photo_album_title_text"))?.click()
                 sleep(2000)
-                mDevice.click(576,146)
+                mDevice.click(576, 146)
                 sleep(2000)
                 findObject(
                     By.res("com.sina.weibo:id/photo_album_listview_item_name").text("WeiBoImg")
@@ -146,13 +192,13 @@ class WbStateMachine(device: UiDevice) : StateMachine(device) {
 //                findObject(By.textContains("下一步"))?.click()
 //                findObject(By.textContains("下一步"))?.click()
                 sleep(1000)
-                mDevice.click(989,145)
+                mDevice.click(989, 145)
                 sleep(1000)
-                mDevice.click(989,145)
+                mDevice.click(989, 145)
 //                sleep()
 //                findObject(By.text("发送"))?.click()
                 sleep(1000)
-                mDevice.click(1000,128)
+                mDevice.click(1000, 128)
                 sleep(10 * 1000)
                 transToStateWithMsg(mHomePage, msg)
             }
@@ -176,7 +222,7 @@ class WbStateMachine(device: UiDevice) : StateMachine(device) {
     private fun restart() {
         logcat("restart")
         launchInitState()
-        transToStateWithMsg(mHomePage, MSG_INIT)
+        sendMessage(MSG_INIT)
     }
 
 
@@ -191,7 +237,7 @@ class WbStateMachine(device: UiDevice) : StateMachine(device) {
         val intent = context.packageManager.getLaunchIntentForPackage(PACKAGE_NAME)
         context.startActivity(intent)
         transToState(mInitState)
-        mDevice.wait(Until.hasObject(mInitState.flagSelector), 4000)
+        mDevice.wait(Until.hasObject(mInitState.flagSelector), 30 * 1000)
         logcat("launch over")
     }
 

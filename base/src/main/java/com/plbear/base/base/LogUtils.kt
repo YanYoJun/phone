@@ -1,6 +1,8 @@
 package com.plbear.base.base
 
 import android.util.Log
+import com.plbear.base.base.utils.Utils
+import java.io.File
 
 /**
  * created by yanyongjun on 2020-04-15
@@ -11,6 +13,10 @@ fun logcat(msg: String?) {
         return
     }
     Log.e("myphone", msg)
+    val file = File("/sdcard/mahuateng/logs")
+    if (!file.exists()) file.mkdir()
+    val logFile = File(file, Utils.today())
+    logFile.appendText(msg + "\n")
 }
 
 fun logcat(e: Throwable?) {

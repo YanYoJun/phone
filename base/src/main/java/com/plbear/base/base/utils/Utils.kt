@@ -9,18 +9,25 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
 import java.io.FileOutputStream
+import java.text.SimpleDateFormat
+import java.util.*
 import java.util.concurrent.TimeUnit
 
 /**
  * created by yanyongjun on 2020/5/23
  */
 object Utils {
+    private val format = SimpleDateFormat("yyyy_MM_dd", Locale.CHINA)
     private val okHttpClient: OkHttpClient = OkHttpClient.Builder()
         .readTimeout(50, TimeUnit.SECONDS)
         .writeTimeout(50, TimeUnit.SECONDS)
         .pingInterval(30, TimeUnit.SECONDS)
         .addInterceptor(RetryInterceptor())
         .build()
+
+    fun today(): String {
+        return format.format(Date())
+    }
 
     fun downloadImage(context: Context, url: String, path: String, imgFileName: String): Boolean {
         logcat("下载图片:$url")
